@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:twilio="http://www.mulesoft.org/schema/mule/twilio" xmlns:sqs="http://www.mulesoft.org/schema/mule/sqs"
+	xmlns:os="http://www.mulesoft.org/schema/mule/os"
+	xmlns:sns="http://www.mulesoft.org/schema/mule/sns" xmlns:validation="http://www.mulesoft.org/schema/mule/validation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/validation http://www.mulesoft.org/schema/mule/validation/current/mule-validation.xsd
+http://www.mulesoft.org/schema/mule/sns http://www.mulesoft.org/schema/mule/sns/current/mule-sns.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd
+http://www.mulesoft.org/schema/mule/sqs http://www.mulesoft.org/schema/mule/sqs/current/mule-sqs.xsd
+http://www.mulesoft.org/schema/mule/twilio http://www.mulesoft.org/schema/mule/twilio/current/mule-twilio.xsd">
+	<flow name="getAlert" doc:id="91fb404e-9b77-406f-9363-c58369447a0f" >
+		<ee:cache doc:name="Cache" doc:id="a6f41d54-53ea-497f-b734-427dddcbc352" >
+			<http:request method="GET" doc:name="Request" doc:id="c3d6fbad-6946-4776-8113-54124e119a0e" config-ref="HTTP_Request_configuration" path="/all_indices">
+			<http:headers><![CDATA[#[output application/java
+---
+{
+	"X-RapidAPI-Host" : "nse-data1.p.rapidapi.com",
+	"X-RapidAPI-Key" : "49e9d67a12mshcf6940b57828452p1f7c9cjsn22737674ec36"
+}]]]></http:headers>
+		</http:request>
+		</ee:cache>
+		<ee:transform doc:name="All Indices" doc:id="24a094ec-c25c-4f47-a5b1-d47c45873d18" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload.body.data]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<set-variable value="#[payload]" doc:name="allIndices" doc:id="f2858792-11dc-4e46-b1c4-4a2e68a71aa9" variableName="allIndices"/>
+		<validation:is-not-null doc:name="Is not null" doc:id="d935ead3-662a-4fb2-9652-a1330cfe1d29" value="#[vars.allIndices]" config-ref="Validation_Config" message="data was not fetched" />
+		<sns:list-topics doc:name="List topics" doc:id="e84774b2-7adb-42ab-820d-3b088408b817" config-ref="Amazon_SNS_configuration"/>
+		<ee:transform doc:name="extractTopicNamesFromSNS" doc:id="557e3dd2-cce9-4448-8136-4b0cfe5165d4" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload map(value, index) ->
+     (value.*payload[0] splitBy(":"))[-1]
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<set-variable value="#[payload]" doc:name="List of Topics" doc:id="36b30723-9334-46e1-bdf8-95a9e3a29ff0" variableName="listOfTopics"/>
+		<os:retrieve doc:name="input stocks" doc:id="72c5cb7c-3363-4ace-969d-c937a60f047c" key="stocks" objectStore="Object_store"/>
+		<set-variable value='#[payload as String splitBy(",")]' doc:name="set input stocks" doc:id="2ea524a0-046d-485c-b907-e941f52afbc4" variableName="inputStocks"/>
+		<set-variable value="#[vars.allIndices filter (vars.inputStocks contains $.index)]" doc:name="filterStocks" doc:id="c2c30747-1925-4c83-a153-cc4714ea72d9" variableName="filterStocks"/>
+		<set-payload value="#[vars.filterStocks]" doc:name="filtered stocks" doc:id="0d57714d-62ac-423d-8b7a-52c4d6bcaf5b" />
+		<foreach doc:name="For Each" doc:id="ba722c03-0141-443b-8945-68d97d3828f7" >
+			<set-variable value="#[payload]" doc:name="eachFilteredStock" doc:id="e04ae637-6a61-4d4b-9efb-5e2559aece0f" variableName="eachFilteredStock"/>
+			<choice doc:name="Choice" doc:id="525e707f-867c-4459-8c29-930d2ab7ca02" >
+				<when expression='#[not (vars.listOfTopics contains (payload.index replace " " with("-")))]'>
+					<ee:transform doc:name="create new topic" doc:id="68d5b7c7-29e8-4cf8-b233-1538aae56b5a" >
+						<ee:message >
+							<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+(payload.index as String)  replace " " with("-")]]></ee:set-payload>
+						</ee:message>
+					</ee:transform>
+					<sns:create-topic doc:name="Create topic" doc:id="a9f178ee-82dd-4694-afc5-398b5864c29b" config-ref="Amazon_SNS_configuration" topicName="#[payload]"/>
+				</when>
+				<otherwise >
+					<logger level="INFO" doc:name="Logger" doc:id="023825ad-e5cc-4c51-b32b-3c88dc507131" message="Topic Exists Already !!"/>
+				</otherwise>
+			</choice>
+			<ee:transform doc:name="transform to required format" doc:id="827ee675-dfe7-4ee7-9ec6-8e2c65792d8c" >
+				<ee:message >
+					<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+    "body":"Stock:" ++" " ++ vars.eachFilteredStock.index ++ "," ++ "PercentInc:" ++ vars.eachFilteredStock.percentChange ++ "," ++ "High: " ++ vars.eachFilteredStock.high ++", "++ "Low:" ++ vars.eachFilteredStock.low
+  	++", "++ "Open:" ++ vars.eachFilteredStock.open ++ "," ++ "CurrentPrice:" ++ vars.eachFilteredStock.last
+}]]></ee:set-payload>
+				</ee:message>
+			</ee:transform>
+			<sqs:send-message doc:name="Send message" doc:id="92283b87-3387-41c2-a2a3-38a48645eb3a" config-ref="Amazon_SQS_Configuration" queueUrl="https://sqs.us-east-1.amazonaws.com/192115233201/myQueue"/>
+		</foreach>
+		<error-handler >
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="3e416b95-07c0-437f-a894-39dfedb28ffd" type="HTTP:BAD_GATEWAY, HTTP:BAD_REQUEST, HTTP:CLIENT_SECURITY, HTTP:CONNECTIVITY, HTTP:FORBIDDEN, HTTP:INTERNAL_SERVER_ERROR, HTTP:METHOD_NOT_ALLOWED, HTTP:NOT_ACCEPTABLE, HTTP:NOT_FOUND, HTTP:PARSING, HTTP:RETRY_EXHAUSTED, HTTP:SECURITY, HTTP:SERVICE_UNAVAILABLE, HTTP:TIMEOUT, HTTP:TOO_MANY_REQUESTS, HTTP:UNAUTHORIZED, HTTP:UNSUPPORTED_MEDIA_TYPE">
+				<set-payload value="Failed to connect to RapidAPI" doc:name="HTTP Error" doc:id="d7541cb2-a7ab-4f67-97e0-1e333cb0f3f1" />
+			</on-error-continue>
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="091acadd-c3fb-4fc8-b358-fa0b003038e2" type="OS:INVALID_KEY, OS:KEY_NOT_FOUND, OS:STORE_NOT_AVAILABLE">
+				<set-payload value="Invalid key / Key not found" doc:name="Key Error" doc:id="108ff0ef-4e10-48a3-a297-a6a826f5bc56" />
+			</on-error-continue>
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="92e1f479-5317-45f4-a4b4-4276bbf89864" type="SQS:ACCESS_DENIED, SQS:CONNECTIVITY, SQS:INTERNAL_FAILURE, SQS:INVALID_CREDENTIALS, SQS:INVALID_DATA, SQS:MESSAGE_SIZE_THRESHOLD_OUT_OF_RANGE, SQS:OPT_IN_REQUIRED, SQS:PARAMETER_OUT_OF_RANGE, SQS:REQUEST_EXPIRED, SQS:RETRY_EXHAUSTED, SQS:S3_BUCKET_ACCESS_DENIED, SQS:S3_BUCKET_NOT_FOUND, SQS:SERVICE_UNAVAILABLE, SQS:THROTTLING_EXCEPTION">
+				<set-payload value="SQS Error : Please check SQS configuration" doc:name="SQS Error" doc:id="401af901-5c48-4189-844d-5fd6696bc42a" />
+			</on-error-continue>
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="9ab79124-8cf9-445c-9212-f6d4da31e35b" type="SNS:AUTHORIZATION_ERROR, SNS:CONNECTIVITY, SNS:ENDPOINT_DISABLED, SNS:INTERNAL_ERROR, SNS:INVALID_PARAMETER, SNS:INVALID_PARAMETER_VALUE, SNS:NOT_FOUND, SNS:PLATFORM_APPLICATION_DISABLED, SNS:RETRY_EXHAUSTED, SNS:SUBSCRIPTION_LIMIT_EXCEEDED, SNS:THROTTLED, SNS:TOPIC_LIMIT_EXCEEDED, SNS:UNDEFINED_TOPIC, SNS:UNKNOWN">
+				<set-payload value="SNS Error: please check SNS configuration" doc:name="SNS Error" doc:id="03dcae25-8aee-4d49-8e91-fc702ca31a39" />
+			</on-error-continue>
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="007b3bf8-4067-4697-a24d-f047f06fc595" type="VALIDATION:NULL">
+				<set-payload value="failed to fetch all indices" doc:name="Validation error" doc:id="4ab2f5c8-841c-4332-b3f5-141e86dfea7f" />
+			</on-error-continue>
+		</error-handler>
+	</flow>
+	<flow name="stockalertFlow" doc:id="519143a1-0e7a-49c1-89e3-7469195f895c" >
+		<sqs:receivemessages doc:name="Receive messages" doc:id="858b240f-ca5e-4328-9de6-61ecfb2781f1" config-ref="Amazon_SQS_Configuration" queueUrl="https://sqs.us-east-1.amazonaws.com/192115233201/myQueue"/>
+		<set-variable value="#[payload]" doc:name="message from queue" doc:id="d2756ddd-9a9d-4823-af30-d27673c8fc89" variableName="queueMessage"/>
+		<set-variable value='#[((payload splitBy(","))[1]splitBy(":"))[1]]' doc:name="percent" doc:id="29c45dfb-c169-451b-acc5-659268434f19" variableName="percent"/>
+		<os:retrieve doc:name="inputAlertType" doc:id="3ec7833a-d14a-47e8-afb6-7cb259677ca5" key="alertType" objectStore="Object_store"/>
+		<set-variable value="#[payload]" doc:name="Set alert type" doc:id="d0557deb-a802-4fa8-a61d-5c09cec6a6de" variableName="inputAlertType"/>
+		<os:retrieve doc:name="inputPercent" doc:id="05483d76-db66-426e-9ae0-4c16d7061587" key="percent" objectStore="Object_store"/>
+		<set-variable value="#[payload]" doc:name="Set percent" doc:id="8e0bbf26-5fe3-4332-98f8-4882c6742018" variableName="inputPercent"/>
+		<choice doc:name="percent" doc:id="e177987c-6c64-4d9d-8387-cc0eb948710d" >
+			<when expression="#[vars.inputPercent as Number &gt; vars.percent as Number]">
+				<choice doc:name="alert type" doc:id="f4d6a3df-9fc1-4b26-899f-55e67e1f5a43" >
+					<when expression='#[vars.inputAlertType == "SMS"]'>
+						<ee:transform doc:name="Transform Message" doc:id="825918a4-b831-4717-a2ea-3257aaa75a93" >
+							<ee:message >
+								<ee:set-payload ><![CDATA[%dw 2.0
+output application/x-www-form-urlencoded
+---
+{ 
+	From: "+15074188011",
+    Body:  vars.queueMessage,
+    To: "+917972150622"
+}]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
+						<twilio:create20100401-accounts-messagesjson-by-account-sid doc:name="Send Via SMS" doc:id="1da4a7de-18e3-47f7-b31d-39554a0441ba" config-ref="Twilio_Connector_Config" accountSid="${secure::twilio.username}"/>
+					</when>
+					<otherwise >
+						<ee:transform doc:name="Transform Message" doc:id="0bb75324-994b-4cd9-9407-eabe615b9dd3" >
+							<ee:message >
+								<ee:set-payload ><![CDATA[%dw 2.0
+output application/x-www-form-urlencoded
+---
+{ 
+	From: "whatsapp:+14155238886",
+    Body: vars.queueMessage,
+    To: "whatsapp:+917972150622"
+}]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
+						<twilio:create20100401-accounts-messagesjson-by-account-sid doc:name="Send Via WhatsApp" doc:id="1a720775-d191-4e99-b8b2-5fd5fdaaf4e7" config-ref="Twilio_Connector_Config1" accountSid="${secure::twilio.username}"/>
+					</otherwise>
+				</choice>
+			</when>
+			<otherwise >
+				<ee:transform doc:name="percent not increased" doc:id="a327ee4a-be86-4e61-b9bf-362f3da9efa6" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+	"message":"The percent has not increased"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</otherwise>
+		</choice>
+		<error-handler >
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="d5424938-003a-420d-801b-a2f7939cd028" type="TWILIO:CLIENT_ERROR, TWILIO:CONNECTIVITY, TWILIO:INTERNAL_SERVER_ERROR, TWILIO:NOT_ACCEPTABLE, TWILIO:NOT_FOUND, TWILIO:RETRY_EXHAUSTED, TWILIO:SERVER_ERROR, TWILIO:SERVICE_UNAVAILABLE, TWILIO:TIMEOUT, TWILIO:TOO_MANY_REQUESTS, TWILIO:UNAUTHORIZED, TWILIO:UNSUPPORTED_MEDIA_TYPE">
+				<set-payload value="Twilio error: please check the connection and configuration" doc:name="Twilio error" doc:id="0123ef3d-d76a-49aa-b97a-ab93f4cd4a48" />
+			</on-error-continue>
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="1e773add-b8a4-4a01-ac7b-43dc3b1621a8" type="OS:INVALID_KEY, OS:KEY_NOT_FOUND, OS:STORE_NOT_AVAILABLE">
+				<set-payload value="Invalid key / Key not found" doc:name="Key error" doc:id="7ea70a9b-e9d3-4406-a9cd-ff5f6a16bc33" />
+			</on-error-continue>
+		</error-handler>
+	</flow>
+	<flow name="checkStock" doc:id="77a7bc19-4e5e-4387-b219-a224c83ffe03" >
+		<os:store doc:id="4f516fb5-0d09-48d7-a888-62b4224446ae" doc:name="Store stocks" key="stocks" objectStore="Object_store">
+			<os:value ><![CDATA[#[payload.stocks]]]></os:value>
+		</os:store>
+		<os:store doc:name="Store alert type" doc:id="53ea4650-d30f-487b-800b-396341e877d5" key="alertType" objectStore="Object_store">
+			<os:value ><![CDATA[#[payload.alertType]]]></os:value>
+		</os:store>
+		<os:store doc:name="percent" doc:id="3da333f3-265b-47c7-a073-a6d52119e130" key="percent" objectStore="Object_store">
+			<os:value ><![CDATA[#[payload.percent]]]></os:value>
+		</os:store>
+		<error-handler >
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="7a0b86de-338e-4ca3-a768-902b150e6e7b" type="ANY">
+				<set-payload value="failed to send the request, try again later" doc:name="Set Payload" doc:id="584a738a-1c14-4706-b908-47ad23a3aad5" />
+			</on-error-continue>
+		</error-handler>
+	</flow>
+</mule>
