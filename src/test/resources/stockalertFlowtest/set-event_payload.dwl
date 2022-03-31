@@ -1,0 +1,1 @@
+"Stock: NIFTY 50,PercentInc:-0.19,High: 17559.8, Low:17435.2, Open:17519.2,CurrentPrice:17464.75"

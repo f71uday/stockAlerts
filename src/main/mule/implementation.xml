@@ -16,8 +16,8 @@ http://www.mulesoft.org/schema/mule/twilio http://www.mulesoft.org/schema/mule/t
 			<http:headers><![CDATA[#[output application/java
 ---
 {
-	"X-RapidAPI-Host" : "nse-data1.p.rapidapi.com",
-	"X-RapidAPI-Key" : "49e9d67a12mshcf6940b57828452p1f7c9cjsn22737674ec36"
+	'X-RapidAPI-Host' : 'nse-data1.p.rapidapi.com',
+	'X-RapidAPI-Key' : '2caa9c0f3bmshe97c29739cb9448p183b1bjsndc844f5d9710'
 }]]]></http:headers>
 		</http:request>
 		</ee:cache>
@@ -43,7 +43,8 @@ payload map(value, index) ->
 			</ee:message>
 		</ee:transform>
 		<set-variable value="#[payload]" doc:name="List of Topics" doc:id="36b30723-9334-46e1-bdf8-95a9e3a29ff0" variableName="listOfTopics"/>
-		<os:retrieve doc:name="input stocks" doc:id="72c5cb7c-3363-4ace-969d-c937a60f047c" key="stocks" objectStore="Object_store"/>
+		<os:retrieve doc:name="input stocks" doc:id="72c5cb7c-3363-4ace-969d-c937a60f047c" key="stocks" objectStore="Object_store">
+		</os:retrieve>
 		<set-variable value='#[payload as String splitBy(",")]' doc:name="set input stocks" doc:id="2ea524a0-046d-485c-b907-e941f52afbc4" variableName="inputStocks"/>
 		<set-variable value="#[vars.allIndices filter (vars.inputStocks contains $.index)]" doc:name="filterStocks" doc:id="c2c30747-1925-4c83-a153-cc4714ea72d9" variableName="filterStocks"/>
 		<set-payload value="#[vars.filterStocks]" doc:name="filtered stocks" doc:id="0d57714d-62ac-423d-8b7a-52c4d6bcaf5b" />
@@ -76,7 +77,7 @@ output application/java
 }]]></ee:set-payload>
 				</ee:message>
 			</ee:transform>
-			<sqs:send-message doc:name="Send message" doc:id="92283b87-3387-41c2-a2a3-38a48645eb3a" config-ref="Amazon_SQS_Configuration" queueUrl="https://sqs.us-east-1.amazonaws.com/192115233201/myQueue"/>
+			<sqs:send-message doc:name="Send message" doc:id="92283b87-3387-41c2-a2a3-38a48645eb3a" config-ref="Amazon_SQS_Configuration" queueUrl="https://sqs.us-east-2.amazonaws.com/774737597527/StockAlert"/>
 		</foreach>
 		<error-handler >
 			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="3e416b95-07c0-437f-a894-39dfedb28ffd" type="HTTP:BAD_GATEWAY, HTTP:BAD_REQUEST, HTTP:CLIENT_SECURITY, HTTP:CONNECTIVITY, HTTP:FORBIDDEN, HTTP:INTERNAL_SERVER_ERROR, HTTP:METHOD_NOT_ALLOWED, HTTP:NOT_ACCEPTABLE, HTTP:NOT_FOUND, HTTP:PARSING, HTTP:RETRY_EXHAUSTED, HTTP:SECURITY, HTTP:SERVICE_UNAVAILABLE, HTTP:TIMEOUT, HTTP:TOO_MANY_REQUESTS, HTTP:UNAUTHORIZED, HTTP:UNSUPPORTED_MEDIA_TYPE">
@@ -97,7 +98,7 @@ output application/java
 		</error-handler>
 	</flow>
 	<flow name="stockalertFlow" doc:id="519143a1-0e7a-49c1-89e3-7469195f895c" >
-		<sqs:receivemessages doc:name="Receive messages" doc:id="858b240f-ca5e-4328-9de6-61ecfb2781f1" config-ref="Amazon_SQS_Configuration" queueUrl="https://sqs.us-east-1.amazonaws.com/192115233201/myQueue"/>
+		<sqs:receivemessages doc:name="Receive messages" doc:id="858b240f-ca5e-4328-9de6-61ecfb2781f1" config-ref="Amazon_SQS_Configuration" queueUrl="https://sqs.us-east-2.amazonaws.com/774737597527/StockAlert"/>
 		<set-variable value="#[payload]" doc:name="message from queue" doc:id="d2756ddd-9a9d-4823-af30-d27673c8fc89" variableName="queueMessage"/>
 		<set-variable value='#[((payload splitBy(","))[1]splitBy(":"))[1]]' doc:name="percent" doc:id="29c45dfb-c169-451b-acc5-659268434f19" variableName="percent"/>
 		<os:retrieve doc:name="inputAlertType" doc:id="3ec7833a-d14a-47e8-afb6-7cb259677ca5" key="alertType" objectStore="Object_store"/>
@@ -114,9 +115,9 @@ output application/java
 output application/x-www-form-urlencoded
 ---
 { 
-	From: "+15074188011",
+	From: "+19034183707",
     Body:  vars.queueMessage,
-    To: "+917972150622"
+    To: "+919479803953"
 }]]></ee:set-payload>
 							</ee:message>
 						</ee:transform>
@@ -129,9 +130,9 @@ output application/x-www-form-urlencoded
 output application/x-www-form-urlencoded
 ---
 { 
-	From: "whatsapp:+14155238886",
+	From: "whatsapp:+19034183707",
     Body: vars.queueMessage,
-    To: "whatsapp:+917972150622"
+    To: "whatsapp:+919479803953"
 }]]></ee:set-payload>
 							</ee:message>
 						</ee:transform>
@@ -170,6 +171,9 @@ output application/java
 		</os:store>
 		<os:store doc:name="percent" doc:id="3da333f3-265b-47c7-a073-a6d52119e130" key="percent" objectStore="Object_store">
 			<os:value ><![CDATA[#[payload.percent]]]></os:value>
+		</os:store>
+		<os:store doc:name="mobile" doc:id="c6753eb2-7136-461e-8ab5-048586ec524b" key="mobile">
+			<os:value ><![CDATA[#[payload.mobile]]]></os:value>
 		</os:store>
 		<error-handler >
 			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="7a0b86de-338e-4ca3-a768-902b150e6e7b" type="ANY">

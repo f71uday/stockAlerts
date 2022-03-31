@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:munit="http://www.mulesoft.org/schema/mule/munit" xmlns:munit-tools="http://www.mulesoft.org/schema/mule/munit-tools"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xsi:schemaLocation="
+		http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+		http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/munit/current/mule-munit.xsd
+		http://www.mulesoft.org/schema/mule/munit-tools  http://www.mulesoft.org/schema/mule/munit-tools/current/mule-munit-tools.xsd">
+	<munit:config name="implementation-suite.xml" />
+	<munit:test name="checkStock-test" doc:id="b999b53e-5bfd-485d-87b7-f56e36bc7ffe" >
+		<munit:behavior >
+			<munit:set-event doc:name="Set Input" doc:id="45f3c132-f095-47ca-b92f-74d901e6f0b8" >
+				<munit:payload value="#[output application/json --- readUrl('classpath://checkStocktest\set-event_payload.dwl')]" encoding="UTF-8" mediaType="application/json" />
+				<munit:attributes value="#[readUrl('classpath://checkStocktest\set-event_attributes.dwl')]" />
+				<munit:variables >
+					<munit:variable key="outboundHeaders" value="#[readUrl('classpath://checkStocktest\set-event_variable_.dwl')]" />
+				</munit:variables>
+			</munit:set-event>
+		</munit:behavior>
+		<munit:execution >
+			<flow-ref doc:name="Flow-ref to checkStock" doc:id="f8acd0c7-cf03-4dd7-b1c1-676ba5db191d" name="checkStock"/>
+		</munit:execution>
+		<munit:validation >
+			<munit-tools:assert doc:name="Assert payload" doc:id="77f54612-6d1b-4ec4-9220-4f0f06709b5c" message="The payload does not match">
+				<munit-tools:that ><![CDATA[#[%dw 2.0
+import checkStocktest::assert_expression_payload
+---
+assert_expression_payload::main({payload: payload, attributes: attributes, vars: vars})]]]></munit-tools:that>
+			</munit-tools:assert>
+		</munit:validation>
+	</munit:test>
+	<munit:test name="getAlert-test" doc:id="93ebeff0-cf25-48a0-b198-abeb957416ec" >
+		<munit:behavior >
+			<munit:set-event doc:name="Set Input" doc:id="a81b7750-3cd1-4d13-b5b7-ccc09636a9ac" >
+				<munit:payload value="#[readUrl('classpath://getAlerttest\set-event_payload1.dwl')]" encoding="UTF-8" />
+				<munit:attributes value="#[readUrl('classpath://getAlerttest\set-event_attributes1.dwl')]" />
+				<munit:variables >
+					<munit:variable key="outboundHeaders" value="#[readUrl('classpath://getAlerttest\set-event_variable_1.dwl')]" />
+				</munit:variables>
+			</munit:set-event>
+		</munit:behavior>
+		<munit:execution >
+			<flow-ref doc:name="Flow-ref to getAlert" doc:id="65477f98-57e9-451e-b177-852bb2f37f4f" name="getAlert"/>
+		</munit:execution>
+		<munit:validation >
+			<munit-tools:assert doc:name="Assert payload" doc:id="d7b81235-b4ab-46a1-a63d-e08b3024c961" message="The payload does not match">
+				<munit-tools:that ><![CDATA[#[%dw 2.0
+import getAlerttest::assert_expression_payload1
+---
+assert_expression_payload1::main({payload: payload, attributes: attributes, vars: vars})]]]></munit-tools:that>
+			</munit-tools:assert>
+		</munit:validation>
+	</munit:test>
+	<munit:test name="stockalertFlow-test" doc:id="81fec764-3fe4-4e60-906c-8958bd678c9c" >
+		<munit:behavior >
+			<munit:set-event doc:name="Set Input" doc:id="4259ba01-f55b-4ed0-a686-367e5172a6b6" >
+				<munit:payload value="#[output text/plain --- readUrl('classpath://stockalertFlowtest\set-event_payload.dwl')]" encoding="UTF-8" mediaType="text/plain" />
+				<munit:attributes value="#[readUrl('classpath://stockalertFlowtest\set-event_attributes.dwl')]" />
+			</munit:set-event>
+		</munit:behavior>
+		<munit:execution >
+			<flow-ref doc:name="Flow-ref to stockalertFlow" doc:id="259e4973-4a4b-4606-8a4a-1532e20b62c4" name="stockalertFlow"/>
+		</munit:execution>
+		<munit:validation >
+			<munit-tools:assert doc:name="Assert payload" doc:id="df09deea-56a9-44fd-a406-caeb4a71627c" message="The payload does not match">
+				<munit-tools:that ><![CDATA[#[%dw 2.0
+import stockalertFlowtest::assert_expression_payload
+---
+assert_expression_payload::main({payload: payload, attributes: attributes, vars: vars})]]]></munit-tools:that>
+			</munit-tools:assert>
+		</munit:validation>
+	</munit:test>
+	<munit:test name="stockalertFlow-test1" doc:id="e1ddb02b-2df8-4d9b-9c76-499cad832a4d" >
+		<munit:behavior >
+			<munit:set-event doc:name="Set Input" doc:id="e0c612c5-a229-4569-a4ed-9a4c831f66f8" >
+				<munit:payload value="#[output text/plain --- readUrl('classpath://stockalertFlowtest1\set-event_payload.dwl')]" encoding="UTF-8" mediaType="text/plain" />
+				<munit:attributes value="#[readUrl('classpath://stockalertFlowtest1\set-event_attributes.dwl')]" />
+			</munit:set-event>
+		</munit:behavior>
+		<munit:execution >
+			<flow-ref doc:name="Flow-ref to stockalertFlow" doc:id="0abf4ef2-2193-4e36-a02d-1e9620f03c8a" name="stockalertFlow"/>
+		</munit:execution>
+		<munit:validation >
+			<munit-tools:assert doc:name="Assert payload" doc:id="2c361938-b072-46bf-a588-2d3834d4e989" message="The payload does not match">
+				<munit-tools:that ><![CDATA[#[%dw 2.0
+import stockalertFlowtest1::assert_expression_payload
+---
+assert_expression_payload::main({payload: payload, attributes: attributes, vars: vars})]]]></munit-tools:that>
+			</munit-tools:assert>
+		</munit:validation>
+	</munit:test>
+
+
+</mule>
